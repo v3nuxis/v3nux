@@ -1,36 +1,17 @@
-__pycache__/
+# Python
 *.pyc
-env/
-venv/
-*.log
-*.pot
-*.mo
-*.po
-*.sqlite3
-*.pyo
-*.pyd
-.pytest_cache/
 __pycache__/
-dist/
-build/
-*.egg-info/
+.env
 
-__pycache__/
-*.pyc
-env/
-venv/
-*.log
-*.pot
-*.mo
-*.po
-*.sqlite3
-*.pyo
-*.pyd
-.pytest_cache/
-__pycache__/
-dist/
-build/
-*.egg-info/
-*.DS_Store
-*dump.sql
+# PyCharm
+.idea/
 
+# Virtualenv
+venv/
+env/
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+
+.DS_Store
+dump.sql

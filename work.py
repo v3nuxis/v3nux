@@ -2,194 +2,173 @@ import json
 
 STORAGE_FILE = "students.json"
 
-default_students = [
-    {
-        "id": 1,
-        "name": "Alice Johnson",
-        "marks": [7, 8, 9, 10, 6, 7, 8],
-        "info": "Alice Johnson is 18 y.o. Interests: math",
-        "from": "USA.New York"
-    },
-    {
-        "id": 2,
-        "name": "Michael Smith",
-        "marks": [6, 5, 7, 8, 7, 9, 10],
-        "info": "Michael Smith is 19 y.o. Interests: science",
-        "from": "United Kingdom.Manchester"
-    },
-    {
-        "id": 3,
-        "name": "Emily Davis",
-        "marks": [9, 8, 8, 7, 6, 7, 7],
-        "info": "Emily Davis is 17 y.o. Interests: literature",
-        "from": "Nigeria.Abuja"
-    },
-    {
-        "id": 4,
-        "name": "James Wilson",
-        "marks": [5, 6, 7, 8, 9, 10, 11],
-        "info": "James Wilson is 20 y.o. Interests: sports",
-        "from": "United Kingdom.London"
-    },
-    {
-        "id": 5,
-        "name": "Olivia Martinez",
-        "marks": [10, 9, 8, 7, 6, 5, 4],
-        "info": "Olivia Martinez is 18 y.o. Interests: art",
-        "from": "Spain.Madrid"
-    },
-    {
-        "id": 6,
-        "name": "Daniel Brown",
-        "marks": [4, 5, 6, 7, 8, 9, 10],
-        "info": "Daniel Brown is 19 y.o. Interests: music",
-        "from": "Ukraine.Kyiv"
-    },
-    {
-        "id": 7,
-        "name": "Sophia Taylor",
-        "marks": [11, 10, 9, 8, 7, 6, 5],
-        "info": "Sophia Taylor is 20 y.o. Interests: physics",
-        "from": "Belarus.Minsk"
-    },
-    {
-        "id": 8,
-        "name": "William Anderson",
-        "marks": [7, 7, 7, 7, 7, 7, 7],
-        "info": "William Anderson is 18 y.o. Interests: chemistry",
-        "from": "Romania.Buharest"
-    },
-    {
-        "id": 9,
-        "name": "Isabella Thomas",
-        "marks": [8, 8, 8, 8, 8, 8, 8],
-        "info": "Isabella Thomas is 19 y.o. Interests: biology",
-        "from": "USA.Ohio"
-    },
-    {
-        "id": 10,
-        "name": "Benjamin Jackson",
-        "marks": [9, 9, 9, 9, 9, 9, 9],
-        "info": "Benjamin Jackson is 20 y.o. Interests: history",
-        "from": "United Kingdom.London"
-    },
-]
+default_students = []
+
+storage = {}
+
 
 def load_storage_from_file():
     global storage
     try:
         with open(STORAGE_FILE, "r", encoding="utf-8") as f:
-            storage = json.load(f)
-    except FileNotFoundError:
-        # Если файл не найден, используем дефолтных студентов
-        print("Storage file not found. Using default students.")
-        storage = default_students
-    except json.JSONDecodeError:
-        # Если файл поврежден, используем дефолтных студентов
-        print("Storage file is corrupted. Using default students.")
-        storage = default_students
+            data = json.load(f)
+            storage = {student['id']: student for student in data}
+    except (FileNotFoundError, json.JSONDecodeError):
+        storage = {student['id']: student for student in default_students}
+
 
 def save_storage_to_file():
+    data = list(storage.values())
     with open(STORAGE_FILE, "w", encoding="utf-8") as f:
-        json.dump(storage, f, indent=4, ensure_ascii=False)
+        json.dump(data, f, indent=4, ensure_ascii=False)
 
-# CRUD
-def add_student(student: dict) -> dict | None:
-    if len(student) != 2:
-        return None
 
+def add_student(student: dict) -> bool:
     if not student.get("name") or not student.get("marks"):
-        return None
-    else:
-        new_id = max([s['id'] for s in storage], default=0)+1
-        student["id"] = new_id
-        student["info"] = ""
-        storage.append(student)
-        save_storage_to_file() 
-        return student
+        return False
+
+    new_id = max(storage.keys()) + 1 if storage else 1
+    student['id'] = new_id
+    storage[new_id] = student
+    save_storage_to_file()
+    return True
+
+
+def add_mark(id_: int, mark: int) -> bool:
+    if id_ not in storage:
+        return False
+    storage[id_]['marks'].append(mark)
+    save_storage_to_file()
+    return True
+
 
 def show_students():
-    print("=========================\n")
-    for student in storage:
-        print(f"{student['id']}. Student {student['name']} id: {student['id']}\n")
-    print("=========================\n")
+    print("=========================")
+    if not storage:
+        print("No students found")
+        return
+    for student_id in sorted(storage.keys()):
+        student = storage[student_id]
+        avg = sum(student['marks']) / len(student['marks'])
+        print(f"{student_id}. {student['name']} | Avg: {avg:.1f}")
+    print("=========================")
 
-def search_student(student_id: int) -> None:
-    for student in storage:
-        info = (
-            "=========================\n"
-            f"[{student['id']}] Student {student['name']}\n"
-            f"Marks: {student['marks']}\n"
-            f"Info: {student['info']}\n"
-            "=========================\n"
-        )
 
-        if student["id"] == student_id:
-            print(info)
-            return
+def show_student(student: dict):
+    if not student:
+        return
+    print(f"""
+=========================
+Name: {student['name']}
+Marks: {student['marks']}
+Info: {student.get('info', 'No info')}
+=========================
+""")
 
-    print(f"Student with ID {student_id} not found")
 
 def ask_student_payload() -> dict:
-    ask_prompt = (
-        "Enter student's payload data using text template: "
-        "John Doe;1,2,3,4,5\n"
-        "where 'John Doe' is a full name and [1,2,3,4,5] are marks.\n"
-        "The data must be separated by ';'"
-    )
+    while True:
+        try:
+            data = input("Введите студента (имя;оценки;[инфо]): ").strip()
+            parts = data.split(';')
+            if len(parts) < 2:
+                raise ValueError("Нужно минимум имя и оценки")
 
-    def parse(data) -> dict:
-        name, raw_marks = data.split(";")
+            name = parts[0].strip()
+            marks = [int(m) for m in parts[1].split(',')]
+            info = parts[2].strip() if len(parts) > 2 else None
 
-        return {
-            "name": name,
-            "marks": [int(item) for item in raw_marks.replace(" ", "").split(",")],
-        }
+            return {"name": name, "marks": marks, "info": info}
 
-    user_data: str = input(ask_prompt)
-    return parse(user_data)
+        except ValueError as e:
+            print(f"Ошибка: {e}. Попробуйте снова")
+
 
 def student_management_command_handle(command: str):
     if command == "show":
         show_students()
     elif command == "add":
         data = ask_student_payload()
-        if data:
-            student: dict | None = add_student(data)
-            print(f"Student: {student['name']} is added")
+        if add_student(data):
+            print(f"Student {data['name']} добавлен")
         else:
-            print("The student's data is NOT correct. Please try again")
+            print("Ошибка: проверьте ввод")
+    elif command == "mark":
+        try:
+            id_ = int(input("Введите ID студента: "))
+            mark = int(input("Введите оценку (1-12): "))
+            if 1 <= mark <= 12 and add_mark(id_, mark):
+                print("Оценка добавлена")
+            else:
+                print("Ошибка: неверный ID или оценка")
+        except ValueError:
+            print("Ошибка: введите числовые значения")
     elif command == "search":
-        student_id: str = input("\nEnter student's ID: ")
-        if student_id:
-            search_student(student_id=int(student_id))
-        else:
-            print("Student's ID is required to search")
+        try:
+            id_ = int(input("Введите ID студента: "))
+            student = storage.get(id_)
+            if student:
+                show_student(student)
+            else:
+                print("Студент не найден")
+        except ValueError:
+            print("Ошибка: введите числовой ID")
+    elif command == "delete":
+        try:
+            id_ = int(input("Введите ID студента: "))
+            if id_ in storage:
+                del storage[id_]
+                save_storage_to_file()
+                print("Студент удален")
+            else:
+                print("Студент не найден")
+        except ValueError:
+            print("Ошибка: введите числовой ID")
+    elif command == "update":
+        try:
+            id_ = int(input("Введите ID студента: "))
+            if id_ not in storage:
+                print("Студент не найден")
+                return
+
+            print("Введите новые данные (имя;[инфо]):")
+            data = input().strip().split(';')
+            student = storage[id_]
+
+            if data[0].strip():
+                student['name'] = data[0].strip()
+
+            if len(data) > 1 and data[1].strip():
+                existing = student.get('info', '')
+                new_info = data[1].strip()
+                student['info'] = new_info if existing in new_info else f"{existing} {new_info}"
+
+            save_storage_to_file()
+            print("Данные обновлены")
+        except ValueError:
+            print("Ошибка: неверный формат данных")
+    else:
+        print("Неизвестная команда")
+
 
 def handle_user_input():
-    OPERATIONAL_COMMANDS = ("quit", "help")
-    STUDENT_MANAGEMENT_COMMANDS = ("show", "add", "search")
-    AVAILABLE_COMMANDS = (*OPERATIONAL_COMMANDS, *STUDENT_MANAGEMENT_COMMANDS)
-
-    HELP_MESSAGE = (
-        "Hello in the Journal! User the menu to interact with the application.\n"
-        f"Available commands: {AVAILABLE_COMMANDS}"
-    )
-
-    print(HELP_MESSAGE)
+    commands = ("quit", "help", "show", "add", "search", "delete", "update", "mark")
+    print(f"Доступные команды: {commands}")
 
     while True:
-
-        command = input("\n Select command: ")
+        command = input("\nВведите команду: ").strip().lower()
 
         if command == "quit":
-            print("\nThanks for using the Journal application")
+            print("Выход из программы")
             break
         elif command == "help":
-            print(HELP_MESSAGE)
-        else:
+            print(f"Доступные команды: {commands}")
+        elif command in commands:
             student_management_command_handle(command)
+        else:
+            print("Неизвестная команда")
+
 
 if __name__ == "__main__":
-    load_storage_from_file() 
+    load_storage_from_file()
     handle_user_input()

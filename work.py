@@ -50,7 +50,7 @@ def show_students():
     for student_id in sorted(storage.keys()):
         student = storage[student_id]
         avg = sum(student['marks']) / len(student['marks'])
-        print(f"{student_id}. {student['name']} | Avg: {avg:.1f}")
+        print(f"{student_id}. {student['name']} | Avg: {avg:.1f} Info: {'info'})
     print("=========================")
 
 

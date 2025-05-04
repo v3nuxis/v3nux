@@ -27,8 +27,8 @@ def add_student(student: dict) -> bool:
     if not student.get("name") or not student.get("marks"):
         return False
 
-    new_id = max(storage.keys()) + 1 if storage else 1
-    student['id'] = new_id
+    next_id = max(storage, key=operator.itemgetter("id"))["id"] + 1
+    student["id"] = next_id
     storage[new_id] = student
     save_storage_to_file()
     return True

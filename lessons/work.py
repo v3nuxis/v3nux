@@ -20,21 +20,22 @@ class Repository:
             with open(self.file_path, mode="r", newline="", encoding="utf-8") as file:
                 reader = csv.DictReader(file, delimiter=";")
                 for row in reader:
-                    # Преобразуем marks из строки обратно в список
                     row["marks"] = [int(mark) for mark in row["marks"].split(",")]
-                    row["id"] = int(row["id"])  # Преобразуем id в число
+                    row["id"] = int(row["id"])
                     students.append(row)
         return students
 
     def save_storage(self):
-        with open(self.file_path, mode="w", newline="", encoding="utf-8") as file:
-            writer = csv.DictWriter(file, fieldnames=["id", "name", "marks", "info"], delimiter=";")
-            writer.writeheader()
-            for student in self.students:
-                # Преобразуем marks в строку для записи
-                student_copy = student.copy()
-                student_copy["marks"] = ",".join(map(str, student_copy["marks"]))
-                writer.writerow(student_copy)
+        try:
+            with open(self.file_path, mode="w", newline="", encoding="utf-8") as file:
+                writer = csv.DictWriter(file, fieldnames=["id", "name", "marks", "info"], delimiter=";")
+                writer.writeheader()
+                for student in self.students:
+                    student_copy = student.copy()
+                    student_copy["marks"] = ",".join(map(str, student_copy["marks"]))
+                    writer.writerow(student_copy)
+        except Exception as e:
+            print(f"Ошибка при сохранении данных: {e}")
 
     def add_student(self, student: dict):
         next_id = max([s["id"] for s in self.students], default=0) + 1
@@ -57,12 +58,10 @@ class Repository:
         return None
 
     def delete_student(self, id_: int):
-        """Удаляет студента."""
         self.students = [s for s in self.students if s["id"] != id_]
         self.save_storage()
 
     def add_mark(self, id_: int, mark: int):
-        """Добавляет оценку студенту."""
         for student in self.students:
             if student["id"] == id_:
                 student["marks"].append(mark)
@@ -136,7 +135,7 @@ def ask_student_payload() -> dict:
         "где 'John Doe' — имя, а [1,2,3,4,5] — оценки.\n"
         "Данные должны быть разделены ';'.\n"
     )
-    user_data: str = input(ask_prompt)
+    user_data = input(ask_prompt)
     name, raw_marks = user_data.split(";")
     return {
         "name": name.strip(),
@@ -154,8 +153,7 @@ def student_management_command_handle(command: str):
         data = ask_student_payload()
         student = student_service.add_student(data)
         if student:
-            print(f"Студент {student['name']} успешно добавлен.\n Вот обновленный список:\n")
-            student_service.show_students()
+            print(f"Студент {student['name']} успешно добавлен.")
         else:
             print("Ошибка при добавлении студента.")
     elif command == "search":

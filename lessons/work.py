@@ -1,174 +1,229 @@
-import json
+import csv
+from pathlib import Path
 
-STORAGE_FILE = "students.json"
+# ─────────────────────────────────────────────────────────
+# STORAGE SIMULATION
+# ─────────────────────────────────────────────────────────
+STORAGE_FILE_NAME = Path(__file__).parent / "students.csv"
 
-default_students = []
+# ─────────────────────────────────────────────────────────
+# INFRASTRUCTURE
+# ─────────────────────────────────────────────────────────
+class Repository:
+    def __init__(self):
+        self.file_path = STORAGE_FILE_NAME
+        self.students = self.load_storage()
 
-storage = {}
+    def load_storage(self):
+        students = []
+        if self.file_path.exists():
+            with open(self.file_path, mode="r", newline="", encoding="utf-8") as file:
+                reader = csv.DictReader(file, delimiter=";")
+                for row in reader:
+                    # Преобразуем marks из строки обратно в список
+                    row["marks"] = [int(mark) for mark in row["marks"].split(",")]
+                    row["id"] = int(row["id"])  # Преобразуем id в число
+                    students.append(row)
+        return students
+
+    def save_storage(self):
+        with open(self.file_path, mode="w", newline="", encoding="utf-8") as file:
+            writer = csv.DictWriter(file, fieldnames=["id", "name", "marks", "info"], delimiter=";")
+            writer.writeheader()
+            for student in self.students:
+                # Преобразуем marks в строку для записи
+                student_copy = student.copy()
+                student_copy["marks"] = ",".join(map(str, student_copy["marks"]))
+                writer.writerow(student_copy)
+
+    def add_student(self, student: dict):
+        next_id = max([s["id"] for s in self.students], default=0) + 1
+        student["id"] = next_id
+        self.students.append(student)
+        self.save_storage()
+
+    def get_student(self, id_: int):
+        for student in self.students:
+            if student["id"] == id_:
+                return student
+        return None
+
+    def update_student(self, id_: int, data: dict):
+        for student in self.students:
+            if student["id"] == id_:
+                student.update(data)
+                self.save_storage()
+                return student
+        return None
+
+    def delete_student(self, id_: int):
+        """Удаляет студента."""
+        self.students = [s for s in self.students if s["id"] != id_]
+        self.save_storage()
+
+    def add_mark(self, id_: int, mark: int):
+        """Добавляет оценку студенту."""
+        for student in self.students:
+            if student["id"] == id_:
+                student["marks"].append(mark)
+                self.save_storage()
+                return student
+        return None
 
 
-def load_storage_from_file():
-    global storage
-    try:
-        with open(STORAGE_FILE, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            storage = {student['id']: student for student in data}
-    except (FileNotFoundError, json.JSONDecodeError):
-        storage = {student['id']: student for student in default_students}
+# ─────────────────────────────────────────────────────────
+# DOMAIN (student, users, notification)
+# ─────────────────────────────────────────────────────────
+class StudentService:
+    def __init__(self):
+        self.repository = Repository()
+
+    @staticmethod
+    def inject_repository(func):
+        def inner(*args, **kwargs):
+            repo = Repository()
+            return func(*args, repo=repo, **kwargs)
+        return inner
+
+    @inject_repository
+    def show_students(self, repo: Repository):
+        print("=========================")
+        for student in repo.students:
+            print(f"{student['id']}. Student {student['name']}")
+        print("=========================")
+
+    def show_student(self, student: dict):
+        print(
+            "=========================\n"
+            f"Student {student['name']}\n"
+            f"Marks: {student['marks']}\n"
+            f"Info: {student['info']}\n"
+            "========================="
+        )
+
+    @inject_repository
+    def add_student(self, student: dict, repo: Repository):
+        if not student.get("name") or not student.get("marks"):
+            return None
+        repo.add_student(student)
+        return student
+
+    @inject_repository
+    def update_student(self, id_: int, raw_input: str, repo: Repository):
+        parsing_result = raw_input.split(";")
+        if len(parsing_result) != 2:
+            return None
+        new_name, new_info = parsing_result
+        data = {"name": new_name, "info": new_info}
+        return repo.update_student(id_, data)
+
+    @inject_repository
+    def delete_student(self, id_: int, repo: Repository):
+        repo.delete_student(id_)
+
+    @inject_repository
+    def add_mark(self, id_: int, mark: int, repo: Repository):
+        repo.add_mark(id_, mark)
 
 
-def save_storage_to_file():
-    data = list(storage.values())
-    with open(STORAGE_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=4, ensure_ascii=False)
-
-
-def add_student(student: dict) -> bool:
-    if not student.get("name") or not student.get("marks"):
-        return False
-
-    next_id = max(storage, key=operator.itemgetter("id"))["id"] + 1
-    student["id"] = next_id
-    storage[new_id] = student
-    save_storage_to_file()
-    return True
-
-
-def add_mark(id_: int, mark: int) -> bool:
-    if id_ not in storage:
-        return False
-    storage[id_]['marks'].append(mark)
-    save_storage_to_file()
-    return True
-
-
-def show_students():
-    print("=========================")
-    if not storage:
-        print("No students found")
-        return
-    for student_id in sorted(storage.keys()):
-        student = storage[student_id]
-        avg = sum(student['marks']) / len(student['marks'])
-        print(f"{student_id}. {student['name']} | Avg: {avg:.1f} Info: {'info'})
-    print("=========================")
-
-
-def show_student(student: dict):
-    if not student:
-        return
-    print(f"""
-=========================
-Name: {student['name']}
-Marks: {student['marks']}
-Info: {student.get('info', 'No info')}
-=========================
-""")
-
-
+# ─────────────────────────────────────────────────────────
+# OPERATIONAL (APPLICATION) LAYER
+# ─────────────────────────────────────────────────────────
 def ask_student_payload() -> dict:
-    while True:
-        try:
-            data = input("Введите студента (имя;оценки;[инфо]): ").strip()
-            parts = data.split(';')
-            if len(parts) < 2:
-                raise ValueError("Нужно минимум имя и оценки")
-
-            name = parts[0].strip()
-            marks = [int(m) for m in parts[1].split(',')]
-            info = parts[2].strip() if len(parts) > 2 else None
-
-            return {"name": name, "marks": marks, "info": info}
-
-        except ValueError as e:
-            print(f"Ошибка: {e}. Попробуйте снова")
+    ask_prompt = (
+        "Введите данные студента в формате: "
+        "John Doe;1,2,3,4,5\n"
+        "где 'John Doe' — имя, а [1,2,3,4,5] — оценки.\n"
+        "Данные должны быть разделены ';'.\n"
+    )
+    user_data: str = input(ask_prompt)
+    name, raw_marks = user_data.split(";")
+    return {
+        "name": name.strip(),
+        "marks": [int(item) for item in raw_marks.replace(" ", "").split(",")],
+        "info": "",
+    }
 
 
 def student_management_command_handle(command: str):
+    student_service = StudentService()
+
     if command == "show":
-        show_students()
+        student_service.show_students()
     elif command == "add":
         data = ask_student_payload()
-        if add_student(data):
-            print(f"Student {data['name']} добавлен")
+        student = student_service.add_student(data)
+        if student:
+            print(f"Студент {student['name']} успешно добавлен.\n Вот обновленный список:\n")
+            student_service.show_students()
         else:
-            print("Ошибка: проверьте ввод")
-    elif command == "mark":
-        try:
-            id_ = int(input("Введите ID студента: "))
-            mark = int(input("Введите оценку (1-12): "))
-            if 1 <= mark <= 12 and add_mark(id_, mark):
-                print("Оценка добавлена")
-            else:
-                print("Ошибка: неверный ID или оценка")
-        except ValueError:
-            print("Ошибка: введите числовые значения")
+            print("Ошибка при добавлении студента.")
     elif command == "search":
-        try:
-            id_ = int(input("Введите ID студента: "))
-            student = storage.get(id_)
-            if student:
-                show_student(student)
-            else:
-                print("Студент не найден")
-        except ValueError:
-            print("Ошибка: введите числовой ID")
+        student_id = input("Введите ID студента: ")
+        if not student_id.isdigit():
+            print("ID должен быть числом.")
+            return
+        student = student_service.get_student(int(student_id))
+        if student:
+            student_service.show_student(student)
+        else:
+            print(f"Студент с ID {student_id} не найден.")
     elif command == "delete":
-        try:
-            id_ = int(input("Введите ID студента: "))
-            if id_ in storage:
-                del storage[id_]
-                save_storage_to_file()
-                print("Студент удален")
-            else:
-                print("Студент не найден")
-        except ValueError:
-            print("Ошибка: введите числовой ID")
+        student_id = input("Введите ID студента для удаления: ")
+        if not student_id.isdigit():
+            print("ID должен быть числом.")
+            return
+        student_service.delete_student(int(student_id))
+        print(f"Студент с ID {student_id} удален.")
     elif command == "update":
-        try:
-            id_ = int(input("Введите ID студента: "))
-            if id_ not in storage:
-                print("Студент не найден")
-                return
-
-            print("Введите новые данные (имя;[инфо]):")
-            data = input().strip().split(';')
-            student = storage[id_]
-
-            if data[0].strip():
-                student['name'] = data[0].strip()
-
-            if len(data) > 1 and data[1].strip():
-                existing = student.get('info', '')
-                new_info = data[1].strip()
-                student['info'] = new_info if existing in new_info else f"{existing} {new_info}"
-
-            save_storage_to_file()
-            print("Данные обновлены")
-        except ValueError:
-            print("Ошибка: неверный формат данных")
-    else:
-        print("Неизвестная команда")
+        student_id = input("Введите ID студента для обновления: ")
+        if not student_id.isdigit():
+            print("ID должен быть числом.")
+            return
+        print("Введите новые данные в формате: Имя;Информация")
+        user_input = input("Введите: ")
+        updated_student = student_service.update_student(int(student_id), user_input)
+        if updated_student:
+            print(f"Данные студента {updated_student['name']} обновлены.")
+        else:
+            print("Ошибка при обновлении данных.")
+    elif command == "add_mark":
+        student_id = input("Введите ID студента: ")
+        mark = input("Введите оценку: ")
+        if not student_id.isdigit() or not mark.isdigit():
+            print("ID и оценка должны быть числами.")
+            return
+        student_service.add_mark(int(student_id), int(mark))
+        print(f"Оценка добавлена студенту с ID {student_id}.")
 
 
+# ─────────────────────────────────────────────────────────
+# PRESENTATION LAYER
+# ─────────────────────────────────────────────────────────
 def handle_user_input():
-    commands = ("quit", "help", "show", "add", "search", "delete", "update", "mark")
-    print(f"Доступные команды: {commands}")
-
+    OPERATIONAL_COMMANDS = ("quit", "help")
+    STUDENT_MANAGEMENT_COMMANDS = ("show", "add", "search", "delete", "update", "add_mark")
+    AVAILABLE_COMMANDS = (*OPERATIONAL_COMMANDS, *STUDENT_MANAGEMENT_COMMANDS)
+    HELP_MESSAGE = (
+        "Добро пожаловать в журнал 'Сквазимабзабзаб'! Используйте меню для взаимодействия с приложением.\n"
+        f"Доступные команды: {AVAILABLE_COMMANDS}"
+    )
+    print(HELP_MESSAGE)
     while True:
         command = input("\nВведите команду: ").strip().lower()
-
         if command == "quit":
-            print("Выход из программы")
+            print("Спасибо за использование журнала!")
             break
         elif command == "help":
-            print(f"Доступные команды: {commands}")
-        elif command in commands:
+            print(HELP_MESSAGE)
+        elif command in STUDENT_MANAGEMENT_COMMANDS:
             student_management_command_handle(command)
         else:
-            print("Неизвестная команда")
+            print("Неизвестная команда. Введите 'help' для просмотра доступных команд.")
 
 
+# ─────────────────────────────────────────────────────────
+# ENTRYPOINT
+# ─────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    load_storage_from_file()
     handle_user_input()

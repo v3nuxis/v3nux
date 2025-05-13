@@ -9,6 +9,22 @@ STORAGE_FILE_NAME = Path(__file__).parent / "students.csv"
 # ─────────────────────────────────────────────────────────
 # INFRASTRUCTURE
 # ─────────────────────────────────────────────────────────
+
+
+
+
+
+
+@property
+def representation(self):
+        return (
+            "=========================\n"
+            f"Student {self.name}\n"
+            f"Marks: {self.marks}\n"
+            f"Info: {self.info}\n"
+            "=========================\n"
+        )
+
 class Repository:
     def __init__(self):
         self.file_path = STORAGE_FILE_NAME

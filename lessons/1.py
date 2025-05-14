@@ -35,35 +35,43 @@ class Database:
 
 class Price:
     EXCHANGE = {
-        "USD": 1.1,  # 1 USD = 1.1 CHF или же франки
-        "EUR": 0.9,  # 1 EUR = 0.9 CHF  или же франки
-        "CHF": 1.0   # 1 CHF = 1 CHF или же франки
+        "USD": 1.1,
+        "EUR": 0.9,
+        "CHF": 1.0
     }
 
-    def __init__(self, amount, currency):
+    def __init__(self, amount: float, currency: str):
+        if currency not in Price.EXCHANGE:
+            raise ValueError(f"Unsupported currency: {currency}")
         self.amount = amount
         self.currency = currency
 
-    def convert_to(self, target_currency):
-        """Конвертирует сумму в указанную валюту через CHF."""
+    def convert_to(self, target_currency: str) -> float:
+        """Converts the amount to the specified target currency."""
+        if target_currency not in Price.EXCHANGE:
+            raise ValueError(f"Unsupported target currency: {target_currency}")
         if self.currency == target_currency:
             return self.amount
         chf_amount = self.amount / Price.EXCHANGE[self.currency]
         return chf_amount * Price.EXCHANGE[target_currency]
 
-    def __add__(self, other):
+    def __add__(self, other: 'Price') -> 'Price':
+        if not isinstance(other, Price):
+            raise TypeError("Operand must be an instance of Price")
         if self.currency == other.currency:
             return Price(self.amount + other.amount, self.currency)
         converted_amount = other.convert_to(self.currency)
         return Price(self.amount + converted_amount, self.currency)
 
-    def __sub__(self, other):
+    def __sub__(self, other: 'Price') -> 'Price':
+        if not isinstance(other, Price):
+            raise TypeError("Operand must be an instance of Price")
         if self.currency == other.currency:
             return Price(self.amount - other.amount, self.currency)
         converted_amount = other.convert_to(self.currency)
         return Price(self.amount - converted_amount, self.currency)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"{self.amount} {self.currency}"
 
 
@@ -76,8 +84,14 @@ def auth(func):
         if current_user:
             return func(*args, **kwargs)
         while True:
-            username = input("Enter username: ")
-            password = input("Enter password: ")
+            username = input("Enter username: ").strip()
+            if not username:
+                print("Username cannot be empty.")
+                continue
+            password = input("Enter password: ").strip()
+            if not password:
+                print("Password cannot be empty.")
+                continue
             for user in users:
                 if user["username"] == username and user["password"] == password:
                     print("Authorization successful!")
@@ -96,12 +110,19 @@ class PaymentSystem:
     def __init__(self, user: dict):
         self.connected_to_the_atm = False
         self.user = user
+        self.user.setdefault("balance", 0)
 
     def deposit(self, amount: int):
+        if amount <= 0:
+            print("Deposit amount must be positive.")
+            return
         self.user["balance"] += amount
         print(f"Deposited {amount}. Total balance: {self.user['balance']}")
 
     def withdraw(self, amount: int):
+        if amount <= 0:
+            print("Withdrawal amount must be positive.")
+            return
         if amount > self.user["balance"]:
             print("Insufficient funds")
             return
@@ -138,91 +159,104 @@ class PaymentSystem:
 
 
 def output():
+    global current_user
     payment_system = None
+
     while True:
-        print("\nHello user, welcome to the bank Johnshpohon")
-        print("\nAvailable commands:")
-        print("1. Login")
-        print("2. Execute command")
-        print("3. Price operations")
-        print("4. Deposit money")
-        print("5. Withdraw money")
-        print("6. Check balance")
-        print("7. Exit")
-        choice = input("Choose an option: ")
+        if not current_user:
+            print("\nHello user, welcome to the bank Johnshpohon")
+            print("For use you ought to login into this bank")
+            print("1. Login")
+            print("2. Exit")
+            choice = input("Choose an option: ")
 
-        if choice == "1":
-            username = input("Enter username: ")
-            password = input("Enter password: ")
-            for user in users:
-                if user["username"] == username and user["password"] == password:
-                    print("Authorization successful!")
-                    global current_user
-                    current_user = user
-                    payment_system = PaymentSystem(user)
-                    print(f"User info: Username: {user['username']}, Balance: {user.get('balance', 0)}")
-                    break
-            else:
-                print("Invalid username or password.")
-
-        elif choice == "2":
-            if not current_user:
-                print("You need to login first.")
-                continue
-            command(current_user["payload"])
-
-        elif choice == "3":
-            try:
-                amount1 = float(input("Enter first amount: "))
-                currency1 = input("Enter first currency (USD/EUR/CHF): ").upper()
-                amount2 = float(input("Enter second amount: "))
-                currency2 = input("Enter second currency (USD/EUR/CHF): ").upper()
-                operation = input("Choose operation (+/-): ")
-                price1 = Price(amount1, currency1)
-                price2 = Price(amount2, currency2)
-                if operation == "+":
-                    result = price1 + price2
-                    print(f"Result: {result}")
-                elif operation == "-":
-                    result = price1 - price2
-                    print(f"Result: {result}")
+            if choice == "1":
+                username = input("Enter username: ")
+                password = input("Enter password: ")
+                for user in users:
+                    if user["username"] == username and user["password"] == password:
+                        print("Authorization successful!")
+                        current_user = user
+                        payment_system = PaymentSystem(user)
+                        print(f"User info: Username: {user['username']}, Balance: {user.get('balance', 0)}")
+                        break
                 else:
-                    print("Invalid operation.")
-            except ValueError:
-                print("Invalid input for price operations.")
+                    print("Invalid username or password.")
+                    continue
 
-        elif choice == "4":
-            if not payment_system:
-                print("You need to login first.")
+            elif choice == "2":
+                print("Exiting...")
+                return
+
+            else:
+                print("Invalid choice. Please try again.")
                 continue
-            try:
-                amount = int(input("Enter deposit amount: "))
-                payment_system.deposit(amount)
-            except ValueError:
-                print("Invalid input for deposit amount.")
-
-        elif choice == "5":
-            if not payment_system:
-                print("You need to login first.")
-                continue
-            try:
-                amount = int(input("Enter withdrawal amount: "))
-                payment_system.withdraw(amount)
-            except ValueError:
-                print("Invalid input for withdrawal amount.")
-
-        elif choice == "6":
-            if not payment_system:
-                print("You need to login first.")
-                continue
-            payment_system.balance()
-
-        elif choice == "7":
-            print("Exiting...")
-            break
 
         else:
-            print("Invalid choice. Please try again.")
+            print("\nAvailable commands:")
+            print("1. Execute command")
+            print("2. Price operations")
+            print("3. Deposit money")
+            print("4. Withdraw money")
+            print("5. Check balance")
+            print("6. Exit")
+            choice = input("Choose an option: ")
+
+            if choice == "1":
+                command(current_user["payload"])
+
+            elif choice == "2":
+                try:
+                    amount1 = float(input("Enter first amount: "))
+                    currency1 = input("Enter first currency (USD/EUR/CHF): ").upper()
+                    amount2 = float(input("Enter second amount: "))
+                    currency2 = input("Enter second currency (USD/EUR/CHF): ").upper()
+                    operation = input("Choose operation (+/-): ")
+                    price1 = Price(amount1, currency1)
+                    price2 = Price(amount2, currency2)
+                    if operation == "+":
+                        result = price1 + price2
+                        print(f"Result: {result}")
+                    elif operation == "-":
+                        result = price1 - price2
+                        print(f"Result: {result}")
+                    else:
+                        print("Invalid operation.")
+                except ValueError as e:
+                    print(f"Error: {e}")
+
+            elif choice == "3":
+                if not payment_system:
+                    print("You need to login first.")
+                    continue
+                try:
+                    amount = int(input("Enter deposit amount: "))
+                    payment_system.deposit(amount)
+                except ValueError:
+                    print("Invalid input for deposit amount.")
+
+            elif choice == "4":
+                if not payment_system:
+                    print("You need to login first.")
+                    continue
+                try:
+                    amount = int(input("Enter withdrawal amount: "))
+                    payment_system.withdraw(amount)
+                except ValueError:
+                    print("Invalid input for withdrawal amount.")
+
+            elif choice == "5":
+                if not payment_system:
+                    print("You need to login first.")
+                    continue
+                payment_system.balance()
+
+            elif choice == "6":
+                print("Exiting...")
+                return
+
+            else:
+                print("Invalid choice. Please try again.")
 
 
 if __name__ == "__main__":

@@ -58,7 +58,6 @@ class Configuration:
 def validate_config(config):
     return config.get("max_retries", 0) >= 0
 
-# Test with valid updates
 print("Original Configuration:", GLOBAL_CONFIG)
 with Configuration({"feature_a": False, "max_retries": 5}, validator=validate_config):
     print("Inside Context (Valid Updates):", GLOBAL_CONFIG)

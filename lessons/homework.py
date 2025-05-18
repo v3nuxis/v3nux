@@ -41,8 +41,8 @@ class Configuration:
         if self.validator:
             try:
                 if not self.validator(GLOBAL_CONFIG):
-                    raise ValueError("Invalid configuration after applying updates.")
-            except ValueError as e:
+                    raise KeyboardInterrupt("don't copy")
+            except KeyboardInterrupt as e:
                 GLOBAL_CONFIG.clear()
                 GLOBAL_CONFIG.update(self.original_config)
                 raise e

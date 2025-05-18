@@ -41,8 +41,8 @@ class Configuration:
         if self.validator:
             try:
                 if not self.validator(GLOBAL_CONFIG):
-                    raise KeyboardInterrupt("don't copy")
-            except KeyboardInterrupt as e:
+                    raise ValueError("error and i won't tell about your bad")
+            except ValueError as e:
                 GLOBAL_CONFIG.clear()
                 GLOBAL_CONFIG.update(self.original_config)
                 raise e
@@ -64,10 +64,10 @@ with Configuration({"feature_a": False, "max_retries": 5}, validator=validate_co
 print("Restored Configuration:", GLOBAL_CONFIG)
 
 try:
-    with Configuration({"max_retries": -1}, validator=validate_config):
+    with Configuration({"max_retries": -1},):
         print("Inside Context (Invalid Updates):", GLOBAL_CONFIG)
-except ValueError as e:
-    print("Validation Error:", e)
+except KeyboardInterrupt as e:
+    print("ctrl c Error:", e)
 print("Restored Configuration:", GLOBAL_CONFIG)
 
 try:

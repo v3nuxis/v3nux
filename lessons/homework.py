@@ -1,79 +1,67 @@
-# import json
-# import time
-# import logging
-#
-# logging.basicConfig(level=logging.INFO)
-#
-# class TimerContext:
-#     def __enter__(self):
-#         self.start = time.monotonic()
-#         return self
-#
-#     def __exit__(self, exc_type, exc_val, exc_tb):
-#         elapsed = time.monotonic() - self.start
-# try:
-#     with open('students.json', 'r', encoding='utf-8') as file:
-#         students = json.load(file)
-# except FileNotFoundError:
-#     logging.error("File 'students.json' not found.")
-#     students = []
-# except json.JSONDecodeError:
-#     logging.error("Failed to decode JSON from 'students.json'.")
-#     students = []
-#
-# with TimerContext():
-#     logging.info(f"All students: {students}")
-#     time.sleep(2)
+import enum
+import logging
 
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
+class Role(enum.StrEnum):
+    STUDENT = enum.auto()
+    TEACHER = enum.auto()
 
-GLOBAL_CONFIG = {"feature_a": True, "max_retries": 3}
+class User:
+    def __init__(self, name: str, email: str, role: Role) -> None:
+        self.name = name
+        self.email = email
+        self.role = role
 
-class Configuration:
-    def __init__(self, updates, validator=None):
-        self.updates = updates
-        self.validator = validator
-        self.original_config = None
+    def send_notification(self, notification, output_method="print"):
+        formatted_message = notification.format()
+        match output_method:
+            case "print":
+                print(f"Notification for {self.name} ({self.role}):\n{formatted_message}")
+            case "log":
+                logging.info(f"Notification for {self.name} ({self.role}):\n{formatted_message}")
+            case _:
+                raise ValueError(f"Unknown output method: {output_method}")
 
-    def __enter__(self):
-        self.original_config = GLOBAL_CONFIG.copy()
-        GLOBAL_CONFIG.update(self.updates)
-        if self.validator:
-            try:
-                if not self.validator(GLOBAL_CONFIG):
-                    raise ValueError("error and i won't tell about your bad")
-            except ValueError as e:
-                GLOBAL_CONFIG.clear()
-                GLOBAL_CONFIG.update(self.original_config)
-                raise e
-        return self
+class Notification:
+    def __init__(self, subject: str, message: str, attachment: str = "") -> None:
+        self.subject = subject
+        self.message = message
+        self.attachment = attachment
 
-    def __exit__(self, exc_type, exc_value, traceback):
-        try:
-            GLOBAL_CONFIG.clear()
-            GLOBAL_CONFIG.update(self.original_config)
-        except Exception as e:
-            print(f"Error {e}")
+    def format(self) -> str:
+        formatted_message = f"Subject: {self.subject}\nMessage: {self.message}"
+        if self.attachment:
+            formatted_message += f"\nAttachment: {self.attachment}"
+        return formatted_message
 
-def validate_config(config):
-    return config.get("max_retries", 0) >= 0
+class StudentNotification(Notification):
+    def format(self) -> str:
+        base_message = super().format()
+        return f"{base_message}\nSent via Student Portal"
 
-print("Original Configuration:", GLOBAL_CONFIG)
-with Configuration({"feature_a": False, "max_retries": 5}, validator=validate_config):
-    print("Inside Context (Valid Updates):", GLOBAL_CONFIG)
-print("Restored Configuration:", GLOBAL_CONFIG)
+class TeacherNotification(Notification):
+    def format(self) -> str:
+        base_message = super().format()
+        return f"{base_message}\nTeacher's Desk Notification"
 
-try:
-    with Configuration({"max_retries": -1},):
-        print("Inside Context (Invalid Updates):", GLOBAL_CONFIG)
-except KeyboardInterrupt as e:
-    print("ctrl c Error:", e)
-print("Restored Configuration:", GLOBAL_CONFIG)
+def main():
+    student = User(name="noname", email="noname@email.com", role=Role.STUDENT)
+    teacher = User(name="Zahar cramble cookie", email="example@example.com", role=Role.TEACHER)
 
-try:
-    with Configuration({"feature_a": False}, validator=validate_config):
-        print("Inside Context (Before Error):", GLOBAL_CONFIG)
-        raise RuntimeError("error")
-except RuntimeError as e:
-    print("Caught Exception:", e)
-print("Restored Configuration:", GLOBAL_CONFIG)
+    student_notification = StudentNotification(
+        subject="Python",
+        message="Don't forget to submit your homework before Thursday!",
+        attachment="homework.py"
+    )
+    teacher_notification = TeacherNotification(
+        subject="Meeting;Python",
+        message="Python Course."
+    )
+
+    print("Sending notifications...")
+    student.send_notification(student_notification, output_method="print")
+    teacher.send_notification(teacher_notification, output_method="print")
+
+if __name__ == "__main__":
+    main()

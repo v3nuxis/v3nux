@@ -1,85 +1,52 @@
-Lesson 6
+Lesson 7
 
-Python Context Managers: TimerContext and Configuration
-This repository contains two Python context managers that simplify common tasks: measuring execution time (TimerContext) and managing temporary configuration changes (Configuration). These tools are designed to be reusable, robust, and easy to integrate into any Python project.
+Notification System in Python
+Project Description
+This project is a simple notification system that allows sending notifications to users with different roles (e.g., students and teachers). Notifications can be formatted based on the user's role and may include additional information, such as attachments.
 
-1. TimerContext: Measure Execution Time
-The TimerContext context manager measures and logs the execution time of a block of code. It uses Python's time module to calculate the elapsed time and logs it using the logging module.
+The project demonstrates the use of:
 
-Features:
-Automatically measures the time taken for a block of code.
-Logs the elapsed time in seconds with two decimal places.
-Integrates seamlessly with Python's logging system.
-Example Usage:
-python
+Classes and inheritance.
+String formatting methods.
+Pattern matching with match-case (Python 3.10+).
+Logging and data output.
+Project Structure
+The project consists of the following classes and functions:
 
+1. Class Role
+Defines user roles using an enumeration (enum.StrEnum):
+STUDENT
+TEACHER
+2. Class User
+Represents a user with the following attributes:
+name — the user's name.
+email — the user's email.
+role — the user's role.
+Includes the method send_notification, which sends a notification to the user. The notification can be printed to the console or logged, depending on the specified output method.
+3. Class Notification
+Represents a basic notification with the following attributes:
+subject — the subject of the notification.
+message — the main message of the notification.
+attachment — an optional attachment (e.g., a file).
+Includes the format method, which formats the notification into a readable string.
+4. Subclasses of Notification
+StudentNotification :
+Adds the phrase "Sent via Student Portal" to the formatted message.
+TeacherNotification :
+Adds the phrase "Teacher's Desk Notification" to the formatted message.
+5. Function main
+Demonstrates the functionality of the system by:
+Creating users with different roles.
+Creating notifications for students and teachers.
+Sending notifications to users.
+6. Sending notifications...
+Notification for noname (STUDENT):
+Subject: Python
+Message: Don't forget to submit your homework before Thursday!
+Attachment: homework.py
+Sent via Student Portal
 
-1
-2
-3
-4
-5
-6
-7
-⌄
-import time
-import logging
-
-logging.basicConfig(level=logging.INFO)
-
-with TimerContext():
-    time.sleep(2)  # Simulate a task that takes 2 seconds
-Output:
-
-
-1
-INFO:root:Elapsed: 2.00 seconds
-Use Cases:
-Benchmarking code performance.
-Logging execution times for debugging or monitoring purposes.
-2. Configuration: Temporary Configuration Changes
-The Configuration context manager applies temporary updates to a global configuration dictionary and ensures the original configuration is restored after the context exits, even if an error occurs. It optionally supports validation of the updated configuration.
-
-Features:
-Temporarily updates a global configuration (GLOBAL_CONFIG) with a dictionary of changes.
-Restores the original configuration when exiting the context, regardless of errors.
-Supports optional validation of the updated configuration using a custom validator function.
-Example Usage:
-GLOBAL_CONFIG = {"feature_a": True, "max_retries": 3}
-
-def validate_config(config):
-    return config.get("max_retries", 0) >= 0
-
-# Test with valid updates
-print("Original Configuration:", GLOBAL_CONFIG)
-with Configuration({"feature_a": False, "max_retries": 5}, validator=validate_config):
-    print("Inside Context (Valid Updates):", GLOBAL_CONFIG)
-print("Restored Configuration:", GLOBAL_CONFIG)
-
-# Test with invalid updates
-try:
-    with Configuration({"max_retries": -1}, validator=validate_config):
-        print("Inside Context (Invalid Updates):", GLOBAL_CONFIG)
-except ValueError as e:
-    print("Validation Error:", e)
-print("Restored Configuration:", GLOBAL_CONFIG)
-
-# Test with an error inside the context
-try:
-    with Configuration({"feature_a": False}, validator=validate_config):
-        print("Inside Context (Before Error):", GLOBAL_CONFIG)
-        raise RuntimeError("An error occurred!")
-except RuntimeError as e:
-    print("Caught Exception:", e)
-print("Restored Configuration:", GLOBAL_CONFIG)
-
-
-Output:
-Original Configuration: {'feature_a': True, 'max_retries': 3}
-Inside Context (Valid Updates): {'feature_a': False, 'max_retries': 5}
-Restored Configuration: {'feature_a': True, 'max_retries': 3}
-Validation Error: Invalid configuration after applying updates.
-Restored Configuration: {'feature_a': True, 'max_retries': 3}
-Inside Context (Before Error): {'feature_a': False, 'max_retries': 3}
-Caught Exception: An error occurred!
-Restored Configuration: {'feature_a': True, 'max_retries': 3}
+Notification for Zahar cramble cookie (TEACHER):
+Subject: Meeting;Python
+Message: Python Course.
+Teacher's Desk Notification

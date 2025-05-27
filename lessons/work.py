@@ -1,29 +1,20 @@
 import csv
 from pathlib import Path
+from datetime import datetime
+import asyncio
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 
 # ─────────────────────────────────────────────────────────
 # STORAGE SIMULATION
 # ─────────────────────────────────────────────────────────
 STORAGE_FILE_NAME = Path(__file__).parent / "students.csv"
 
+
 # ─────────────────────────────────────────────────────────
 # INFRASTRUCTURE
 # ─────────────────────────────────────────────────────────
-
-
-
-
-
-
-@property
-def representation(self):
-        return (
-            "=========================\n"
-            f"Student {self.name}\n"
-            f"Marks: {self.marks}\n"
-            f"Info: {self.info}\n"
-            "=========================\n"
-        )
 
 class Repository:
     def __init__(self):
@@ -36,7 +27,12 @@ class Repository:
             with open(self.file_path, mode="r", newline="", encoding="utf-8") as file:
                 reader = csv.DictReader(file, delimiter=";")
                 for row in reader:
-                    row["marks"] = [int(mark) for mark in row["marks"].split(",")]
+                    # Разбираем строку marks обратно в список словарей
+                    raw_marks = row["marks"].split("|")
+                    row["marks"] = [
+                        {"mark": int(mark.split(":")[0]), "creation_date": mark.split(":")[1]}
+                        for mark in raw_marks
+                    ]
                     row["id"] = int(row["id"])
                     students.append(row)
         return students
@@ -48,7 +44,10 @@ class Repository:
                 writer.writeheader()
                 for student in self.students:
                     student_copy = student.copy()
-                    student_copy["marks"] = ",".join(map(str, student_copy["marks"]))
+                    # Преобразуем список словарей обратно в строку
+                    student_copy["marks"] = "|".join(
+                        [f"{mark['mark']}:{mark['creation_date']}" for mark in student_copy["marks"]]
+                    )
                     writer.writerow(student_copy)
         except Exception as e:
             print(f"Ошибка при сохранении данных: {e}")
@@ -56,8 +55,10 @@ class Repository:
     def add_student(self, student: dict):
         next_id = max([s["id"] for s in self.students], default=0) + 1
         student["id"] = next_id
+        student["marks"] = []  # Инициализируем пустой список оценок
         self.students.append(student)
         self.save_storage()
+        return student
 
     def get_student(self, id_: int):
         for student in self.students:
@@ -80,15 +81,106 @@ class Repository:
     def add_mark(self, id_: int, mark: int):
         for student in self.students:
             if student["id"] == id_:
-                student["marks"].append(mark)
+                student["marks"].append({"mark": mark, "creation_date": datetime.now().strftime("%Y-%m-%d")})
                 self.save_storage()
                 return student
         return None
 
 
 # ─────────────────────────────────────────────────────────
+# ANALYTICS
+# ─────────────────────────────────────────────────────────
+
+class AnalyticsService:
+    def __init__(self, repository: Repository):
+        self.repository = repository
+
+    def calculate_total_students(self) -> int:
+        return len(self.repository.students)
+
+    def calculate_daily_average_marks(self, date: str) -> float:
+        total_marks = 0
+        total_count = 0
+        for student in self.repository.students:
+            for mark in student["marks"]:
+                if mark["creation_date"] == date:
+                    total_marks += mark["mark"]
+                    total_count += 1
+        return total_marks / total_count if total_count > 0 else 0
+
+
+# ─────────────────────────────────────────────────────────
+# EMAIL SERVICE
+# ─────────────────────────────────────────────────────────
+
+class EmailService:
+    def __init__(self, smtp_server: str, smtp_port: int, sender_email: str, sender_password: str):
+        self.smtp_server = smtp_server
+        self.smtp_port = smtp_port
+        self.sender_email = sender_email
+        self.sender_password = sender_password
+
+    async def send_email(self, recipient_email: str, subject: str, body: str):
+        message = MIMEMultipart()
+        message["From"] = self.sender_email
+        message["To"] = recipient_email
+        message["Subject"] = subject
+        message.attach(MIMEText(body, "plain"))
+        try:
+            with smtplib.SMTP(self.smtp_server, self.smtp_port) as server:
+                server.starttls()
+                server.login(self.sender_email, self.sender_password)
+                server.sendmail(self.sender_email, recipient_email, message.as_string())
+            print("Email отправлен успешно!")
+        except Exception as e:
+            print(f"Ошибка при отправке email: {e}")
+
+
+# ─────────────────────────────────────────────────────────
+# REPORTS
+# ─────────────────────────────────────────────────────────
+
+async def daily_report_task(analytics_service: AnalyticsService, email_service: EmailService):
+    while True:
+        today = datetime.now().strftime("%Y-%m-%d")
+        average_mark = analytics_service.calculate_daily_average_marks(today)
+        total_students = analytics_service.calculate_total_students()
+
+        subject = f"Ежедневный отчет за {today}"
+        body = f"Средняя оценка за день: {average_mark}\nОбщее количество студентов: {total_students}"
+
+        await email_service.send_email("admin@example.com", subject, body)
+        await asyncio.sleep(86400)  # Ждем 24 часа
+
+
+async def monthly_report_task(analytics_service: AnalyticsService, email_service: EmailService):
+    while True:
+        today = datetime.now().strftime("%Y-%m")
+        total_students = analytics_service.calculate_total_students()
+
+        subject = f"Ежемесячный отчет за {today}"
+        body = f"Общее количество студентов: {total_students}"
+
+        await email_service.send_email("admin@example.com", subject, body)
+        await asyncio.sleep(2592000)  # Ждем 30 дней
+
+
+async def year_report_task(analytics_service: AnalyticsService, email_service: EmailService):
+    while True:
+        today = datetime.now().strftime("%Y")
+        total_students = analytics_service.calculate_total_students()
+
+        subject = f"Ежегодный отчет за {today}"
+        body = f"Общее количество студентов за весь год учебы: {total_students}"
+
+        await email_service.send_email("admin@example.com", subject, body)
+        await asyncio.sleep(31556926)  # Ждем 1 год
+
+
+# ─────────────────────────────────────────────────────────
 # DOMAIN (student, users, notification)
 # ─────────────────────────────────────────────────────────
+
 class StudentService:
     def __init__(self):
         self.repository = Repository()
@@ -98,6 +190,7 @@ class StudentService:
         def inner(*args, **kwargs):
             repo = Repository()
             return func(*args, repo=repo, **kwargs)
+
         return inner
 
     @inject_repository
@@ -118,7 +211,7 @@ class StudentService:
 
     @inject_repository
     def add_student(self, student: dict, repo: Repository):
-        if not student.get("name") or not student.get("marks"):
+        if not student.get("name"):
             return None
         repo.add_student(student)
         return student
@@ -144,6 +237,7 @@ class StudentService:
 # ─────────────────────────────────────────────────────────
 # OPERATIONAL (APPLICATION) LAYER
 # ─────────────────────────────────────────────────────────
+
 def ask_student_payload() -> dict:
     ask_prompt = (
         "Введите данные студента в формате: "
@@ -155,7 +249,8 @@ def ask_student_payload() -> dict:
     name, raw_marks = user_data.split(";")
     return {
         "name": name.strip(),
-        "marks": [int(item) for item in raw_marks.replace(" ", "").split(",")],
+        "marks": [{"mark": int(item), "creation_date": datetime.now().strftime("%Y-%m-%d")} for item in
+                  raw_marks.replace(" ", "").split(",")],
         "info": "",
     }
 
@@ -214,6 +309,7 @@ def student_management_command_handle(command: str):
 # ─────────────────────────────────────────────────────────
 # PRESENTATION LAYER
 # ─────────────────────────────────────────────────────────
+
 def handle_user_input():
     OPERATIONAL_COMMANDS = ("quit", "help")
     STUDENT_MANAGEMENT_COMMANDS = ("show", "add", "search", "delete", "update", "add_mark")
@@ -239,5 +335,18 @@ def handle_user_input():
 # ─────────────────────────────────────────────────────────
 # ENTRYPOINT
 # ─────────────────────────────────────────────────────────
-if __name__ == "__main__":
-    handle_user_input()
+
+async def main():
+    repository = Repository()
+    analytics = Analytics(repository)
+    email_service = EmailService(
+        smtp_server="smtp@example.com",
+        smtp_port=111,
+        sender_email="blablabla@example.com",
+        sender_password="12345six",
+    )
+    await asyncio.gather(
+        daily_report(analytics, email_service),
+        monthly_report(analytics, email_service),
+        year_report(analytics, email_service)
+    )

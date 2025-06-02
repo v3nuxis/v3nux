@@ -238,7 +238,10 @@ class CommentModerator:
     def flag_suspicious_comments(self):
         suspicious_keywords = ["buy", "free", "offer"]
         for comment in self.comments:
-            if any(keyword in comment.body.lower() for keyword in suspicious_keywords) or search(r'!{3,}', comment.body):
+            body_lower = comment.body.lower()
+            suspicious_word = any(keyword in body_lower for keyboard in suspicious_keywords)
+            exclamations = "!!!" in body_lower
+            if suspicious_word or exclamations:
                 self.flagged_comments.append(comment)
 
     def group_by_post(self) -> dict[int, list[Comment]]:
@@ -269,4 +272,5 @@ class CommentModerator:
         ]
         with open(filename, 'w') as f:
             json.dump(flagged_data, f, indent=4)
+
 

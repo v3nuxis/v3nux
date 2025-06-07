@@ -1,0 +1,17 @@
+# Python
+*.pyc
+__pycache__/
+.env
+
+# PyCharm
+../.idea/
+
+# Virtualenv
+venv/
+env/
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+
+.DS_Store
+dump.sql

@@ -312,16 +312,15 @@ class Price:
         result_amount = await self._convert_from_chf(session, result_in_chf, self.currency)
         return Price(result_amount, self.currency, self.api_key)
 
-    async def __add__(self, other) -> 'Price':
-        async with aiohttp.ClientSession() as session:
-            return await self._perform_operation(session, other, '+')
-
-    async def __sub__(self, other) -> 'Price':
-        async with aiohttp.ClientSession() as session:
-            return await self._perform_operation(session, other, '-')
-
-    def __repr__(self):
-        return f"Price(amount={self.amount}, currency='{self.currency}')"
+# def __add__(self, other) -> 'Price':
+#         async with aiohttp.ClientSession() as session:
+#             return self._perform_operation(session, other, '+')
+# def __sub__(self, other) -> 'Price':
+#         async with aiohttp.ClientSession() as session:
+#             return self._perform_operation(session, other, '-')
+#
+#     def __repr__(self):
+#         return f"Price(amount={self.amount}, currency='{self.currency}')"
 
 
 async def main():
